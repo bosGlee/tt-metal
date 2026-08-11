@@ -140,16 +140,21 @@ inline void calculate_typecast_int32_to_fp16b() {
     //
     // Notation: [x] means scheduled by SFPLOADMACRO with VD=x.
     //
-    // Note: L0=0.0 and L1=-2**31.  The sign bit of abs(v) is stored in L7 and
-    // used to pick L0 or L1 for SFPMAD's VA:
+    // Int32 inputs are already in sign-magnitude format in DST.  Clear the
+    // sign bit into t, cast the magnitude, then let the macro template reapply
+    // the original sign from v:
     //
-    // - if sign bit is 0, then compute L0*1.0 + v = v
-    // - if sign bit is 1, then compute L1*1.0 + v = -2**31 + 0.0 = -2**31
+    // - t = setsgn(v, 0) clears the sign bit and preserves the magnitude
+    // - t = cast(t) converts the magnitude to fp32
+    // - [v] = setsgn(t, v) restores the original sign
+    //
+    // L0 and L1 are both 0.0, so the indirect SFPMAD stage is kept as a
+    // scheduling no-op regardless of the L7 selector value.
     //
     // t | Load | Simple             | MAD                 | Round            | Store   |
     // - | ---- | ------------------ | ------------------- | ---------------- | ------- |
     // 0 | [v]  |                    |                     |                  |         |
-    // 1 |      | t = abs(v)         |                     |                  |         |
+    // 1 |      | t = setsgn(v, 0)   |                     |                  |         |
     // 2 |      |                    |                     | L7 = t >> 31     |         |
     // 3 |      | t = cast(t)        |                     |                  |         |
     // 0 | ...  | [v] = setsgn(t, v) |                     |                  |         |
@@ -324,24 +329,23 @@ inline void calculate_typecast_int32_to_fp32() {
 #else
     // This uses SFPLOADMACRO to achieve a throughput of 4 cycles per input row.
     //
-    // Notation: [x] means scheduled by SFPLOADMACRO with VD=x.
+    // Int32 inputs are already in sign-magnitude format in DST.  Clear the
+    // sign bit into t, cast the magnitude, then let the macro template reapply
+    // the original sign from v.
     //
-    // Note: L0=0.0 and L1=-2**31.  The sign bit of abs(v) is stored in L7 and
-    // used to pick L0 or L1 for SFPMAD's VA:
+    // L0 and L1 are both 0.0, so the indirect SFPMAD stage is kept as a
+    // scheduling no-op regardless of the L7 selector value.
     //
-    // - if sign bit is 0, then compute L0*1.0 + v = v
-    // - if sign bit is 1, then compute L1*1.0 + v = -2**31 + 0.0 = -2**31
-    //
-    // t | Load | Simple             | MAD                     | Round        | Store   |
-    // - | ---- | ------------------ | ----------------------- | ------------ | ------- |
-    // 0 | [v]  |                    |                         |              |         |
-    // 1 |      | t = abs(v)         |                         |              |         |
-    // 2 |      |                    |                         | L7 = t >> 31 |         |
-    // 3 |      | t = cast(t)        |                         |              |         |
-    // 0 | ...  | [v] = setsgn(t, v) |                         |              |         |
-    // 1 | ...  |                    | [v] L16 = L[L7]*1.0 + v |              |         |
-    // 2 | ...  |                    |                         |              |         |
-    // 3 | ...  |                    |                         |              | [v] L16 |
+    // t | Load | Simple             | MAD                 | Round       | Store   |
+    // - | ---- | ------------------ | ------------------- | ----------- | ------- |
+    // 0 | [v]  |                    |                     |             |         |
+    // 1 |      | t = setsgn(v, 0)   |                     |             |         |
+    // 2 |      |                    |                     | L7 = t >> 31|         |
+    // 3 |      | t = cast(t)        |                     |             |         |
+    // 0 | ...  | [v] = setsgn(t, v) |                     |             |         |
+    // 1 | ...  |                    | [v] = L[L7]*1.0 + v |             |         |
+    // 2 | ...  |                    |                     |             |         |
+    // 3 | ...  |                    |                     |             | [v]     |
 
     constexpr int t = p_sfpu::LREG4;
 
