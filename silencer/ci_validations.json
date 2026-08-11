@@ -1,0 +1,15 @@
+{
+  "in_flight": [
+    {
+      "branch": "silencer/optest-pydantic-model-namespace-warning",
+      "pr": 1,
+      "workflow": "sanity-tests",
+      "run_id": "31478976655",
+      "dispatched": "2026-08-11",
+      "last_state": "queued",
+      "nonterminal_reported": true,
+      "reported": false
+    }
+  ],
+  "notes": "pr-gate run 31478977502 (auto-triggered by the PR, not our dispatch) completed with conclusion action_required - reported as terminal-ish informational note in same PR comment, but the actual dispatched validation workflow (sanity-tests, run 31478976655) is still queued/pending runners, so the CI validation entry stays in flight."
+}
