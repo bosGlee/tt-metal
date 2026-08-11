@@ -1,21 +1,22 @@
 # Repo Assist Memory — bosGlee/tt-metal
 
-Last run: 2026-08-11 07:36 UTC (workflow run 31469458249)
+Last run: 2026-08-11 13:41 UTC (workflow run 31497272831)
 
 ## Repo state observation
-- As of this run, the repository had **0 open issues and 0 open pull requests** (and 0 closed of either).
-- This appears to be a fork/mirror (bosGlee/tt-metal) with no activity yet — likely no issues/PRs have been created here.
-- Monthly Activity Summary issue created: "[repo-assist] Monthly Activity 2026-08" (label: automation).
+- 0 open issues, 0 open issues found via search either.
+- 1 PR exists (bosGlee/tt-metal#1) but is filtered out of all github tool results due to "secrecy requirements" the agent doesn't meet — cannot read/act on it this run. Note for next run: try again, may become accessible or may always be restricted (verify before assuming).
+- Monthly Activity Summary issue "[repo-assist] Monthly Activity 2026-08" recreated this run (label: automation) — the one referenced in prior memory did not actually exist (search returned 0 results), so memory had gone stale re: its existence. Do not trust stored issue numbers without re-verifying via search each run.
 
 ## Backlog cursor
 - Task 1 (labelling): N/A — no issues exist.
 - Task 2 (investigate/comment): N/A — no issues exist.
 - Task 3 (fix via PR): N/A — no bug/ci-bug issues exist.
-- Task 4 (small improvements): not yet attempted this run; consider on next run if repo has any content worth improving (docs/README) even without open issues.
-- Task 5 (maintain repo-assist PRs): N/A — no PRs exist.
-- Task 6 (stale PR nudges): N/A — no PRs exist.
+- Task 4 (small improvements): not yet attempted; consider next run if repo has doc/README content worth improving.
+- Task 5 (maintain repo-assist PRs): blocked — PR #1 inaccessible due to secrecy filter this run; retry next run.
+- Task 6 (stale PR nudges): blocked — same PR #1 inaccessible.
 - Task 7 (welcome new contributors): N/A — no new issues/PRs in last 24h.
 
 ## Next run guidance
-- Re-check for open issues/PRs — repo may be a fork that syncs from upstream tenstorrent/tt-metal or may receive new issues.
-- If still empty, consider Task 4 small doc improvements only if genuinely warranted; otherwise noop again.
+- Re-check open issues/PRs via github MCP tool (search_issues/search_pull_requests) — do not assume memory's issue/PR numbers are accurate; verify existence first.
+- Try PR #1 again next run to see if secrecy filter still applies.
+- If still empty of actionable work, consider Task 4 doc improvements only if genuinely warranted.
