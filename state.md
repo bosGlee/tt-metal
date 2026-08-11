@@ -1,11 +1,11 @@
 # Repo Assist Memory — bosGlee/tt-metal
 
-Last run: 2026-08-11 13:41 UTC (workflow run 31497272831)
+Last run: 2026-08-11 19:19 UTC (workflow run 31527088431)
 
 ## Repo state observation
-- 0 open issues, 0 open issues found via search either.
-- 1 PR exists (bosGlee/tt-metal#1) but is filtered out of all github tool results due to "secrecy requirements" the agent doesn't meet — cannot read/act on it this run. Note for next run: try again, may become accessible or may always be restricted (verify before assuming).
-- Monthly Activity Summary issue "[repo-assist] Monthly Activity 2026-08" recreated this run (label: automation) — the one referenced in prior memory did not actually exist (search returned 0 results), so memory had gone stale re: its existence. Do not trust stored issue numbers without re-verifying via search each run.
+- Confirmed again this run: 0 open issues (list_issues + search_issues both return 0).
+- PR #1 still filtered out of all github tool results due to "secrecy requirements" — consistent across two consecutive runs now; likely a persistent restriction, not transient. Keep checking occasionally but don't expect it to change.
+- Created a new "[repo-assist] Monthly Activity 2026-08" issue this run (label: automation) — search confirmed no existing one (0 results), so previous instance from memory was indeed gone/never created successfully. Do NOT assume this new issue persists correctly either — always re-search at start of next run rather than trusting a stored issue number.
 
 ## Backlog cursor
 - Task 1 (labelling): N/A — no issues exist.
