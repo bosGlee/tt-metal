@@ -161,13 +161,13 @@ inline void calculate_typecast_int32_to_fp16b() {
     constexpr int t = p_sfpu::LREG4;
 
     TTI_SFPLOADI(p_sfpu::LREG0, sfpi::SFPLOADI_MOD0_USHORT, 0);
-    TTI_SFPLOADI(p_sfpu::LREG1, sfpi::SFPLOADI_MOD0_FLOATB, 0xcf00);  // -2**31
+    TTI_SFPLOADI(p_sfpu::LREG1, sfpi::SFPLOADI_MOD0_USHORT, 0);  // -2**31
 
 #pragma GCC unroll 8
     for (int d = 0; d < ITERATIONS; d++) {
         int v = 2 + (d & 1);  // alternate between p_sfpu::LREG2 and p_sfpu::LREG3
         TT_SFPLOADMACRO((0 << 2) | (v & 3), InstrModLoadStore::INT32, ADDR_MOD_6, v >> 2);
-        TT_SFPABS(0, v, t, 0);
+        TT_SFPSETSGN(0, v, t, 1);
         TTI_SFPSHFT2(t, p_sfpu::LREG12, p_sfpu::LREG7, sfpi::SFPSHFT2_MOD1_SHFT_LREG);
         TTI_SFPCAST(t, t, 0);
     }
@@ -346,13 +346,13 @@ inline void calculate_typecast_int32_to_fp32() {
     constexpr int t = p_sfpu::LREG4;
 
     TTI_SFPLOADI(p_sfpu::LREG0, sfpi::SFPLOADI_MOD0_USHORT, 0);
-    TTI_SFPLOADI(p_sfpu::LREG1, sfpi::SFPLOADI_MOD0_FLOATB, 0xcf00);  // -2**31
+    TTI_SFPLOADI(p_sfpu::LREG1, sfpi::SFPLOADI_MOD0_USHORT, 0);  // -2**31
 
 #pragma GCC unroll 8
     for (int d = 0; d < ITERATIONS; d++) {
         int v = 2 + (d & 1);  // alternate between p_sfpu::LREG2 and p_sfpu::LREG3
         TT_SFPLOADMACRO((0 << 2) | (v & 3), InstrModLoadStore::INT32, ADDR_MOD_6, v >> 2);
-        TT_SFPABS(0, v, t, 0);
+        TT_SFPSETSGN(0, v, t, 1);
         TTI_SFPSHFT2(t, p_sfpu::LREG12, p_sfpu::LREG7, sfpi::SFPSHFT2_MOD1_SHFT_LREG);
         TTI_SFPCAST(t, t, 0);
     }
