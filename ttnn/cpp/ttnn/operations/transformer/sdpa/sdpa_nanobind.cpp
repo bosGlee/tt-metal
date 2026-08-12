@@ -578,7 +578,7 @@ void bind_sdpa(nb::module_& mod) {
           Internally, these are concatenated in the sequence dimension (joint_strategy = "rear"),
           then attention is computed once. The output is split ("sliced") into two parts: one for the original Q/K/V chunk,
           and one for the joint Q/K/V chunk.
-        - funtional causal attention over a single set of query, key and value tensors with the option of handling zig-zag load balancing across devices.
+        - functional causal attention over a single set of query, key and value tensors with the option of handling zig-zag load balancing across devices.
 
         This op handles optional padding via an attention mask to omit padded tokens from
         both the "original" and "joint" sequences.
