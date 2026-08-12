@@ -514,7 +514,7 @@ inline __attribute__((always_inline)) bool ncrisc_noc_nonposted_atomics_flushed(
 }
 
 inline __attribute__((always_inline)) void overlay_cmd_buff_init(uint32_t atomic_ret_val) {
-    // Added for compatability with V2, no local cmd buffers in V1
+    // Added for compatibility with V2, no local cmd buffers in V1
 }
 
 inline __attribute__((always_inline)) void noc_init(uint32_t atomic_ret_val) {
