@@ -69,7 +69,7 @@ class GlobalConfig:
     channel = 64
 
     bounding_box_divisor = 2.0  # The height and width of the bounding box value was changed by this factor during data collection. Fix that for future datasets and remove
-    draw_brake_threshhold = 0.5  # If the brake value is higher than this threshhold, the bb will be drawn with the brake color during visualization
+    draw_brake_threshold = 0.5  # If the brake value is higher than this threshold, the bb will be drawn with the brake color during visualization
 
     # Waypoint GRU
     gru_hidden_size = 64
