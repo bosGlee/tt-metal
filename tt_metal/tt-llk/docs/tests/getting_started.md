@@ -10,7 +10,7 @@ If your tests are failing for *no reason*, read our [debugging guide](debugging_
 | 2 | [Overview](#overview) |
 | 3 | [Functional tests](#functional-tests) |
 | 4 | [Writing performance tests](#writing-performance-tests) |
-| 5 | [Writing your own template and runtime parameters](#writting-your-own-template-and-runtime-parameters) |
+| 5 | [Writing your own template and runtime parameters](#writing-your-own-template-and-runtime-parameters) |
 | 6 | [Running the tests](#running-the-tests) |
 | 7 | [Where do my compilation artifacts end up?](#where-do-my-compilation-artifacts-end-up) |
 | 8 | [How do I see what code did my test cover during execution?](#how-do-i-see-what-code-did-my-tests-cover) |

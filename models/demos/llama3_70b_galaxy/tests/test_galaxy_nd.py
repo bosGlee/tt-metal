@@ -185,7 +185,7 @@ def test_galaxy_nd(M, K, N, weights_dtype, mesh_shape, mesh_device, num_iters):
             diff = out[locs] - golden[locs]
             device_groups = {(y, x): None for y in range(mesh_shape[0]) for x in range(mesh_shape[1])}
 
-            # Create all relevent DeviceFailure objects
+            # Create all relevant DeviceFailure objects
             num_failures = len(locs[0])
             for i in range(num_failures):
                 # Get the device location of the failure
