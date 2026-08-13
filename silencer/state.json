@@ -1,4 +1,5 @@
 {
   "in_flight": [],
-  "notes": "PR #1 (silencer/optest-pydantic-model-namespace-warning) dispatched sanity-tests run 31478976655 resolved to completed/cancelled with all jobs skipped/cancelled -- reported as terminal (inconclusive, no test-execution logs produced) in PR comment, PR marked ready for review. Entry retired (reported:true)."
+  "last_scanned_workflow": "t3000-unit-tests",
+  "notes": "Rotation: last scanned tracked workflow was t3000-unit-tests (run 31699134365, jobs 94446578370 t3k_ttnn_tests, 94446578282 t3k_dits_tests). Histogram showed UMD info (topology discovery, 242x each of 4 lifecycle lines) and Metal warning (73x 'Opening subset of mmio devices...') as backlog candidates for category 5/6 demotion in a future run. Next run should rotate to a different tracked workflow (e.g. sanity-tests, single-card-demo-tests, or models-t1/t2/t3) not yet sampled recently."
 }

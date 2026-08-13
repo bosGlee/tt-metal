@@ -2,13 +2,23 @@
   "in_flight": [
     {
       "branch": "silencer/pydantic-class-config-deprecation",
-      "pr": "new (created this run)",
+      "pr": 5,
       "workflow": "sanity-tests",
-      "dispatched": "this-run",
+      "run_id": "31688570107",
+      "dispatched": "2026-08-13",
+      "last_state": "queued",
+      "nonterminal_reported": true,
+      "reported": false
+    },
+    {
+      "branch": "silencer/unused-var-reduce-h-neg",
+      "pr": "new (created this run)",
+      "workflow": "t3000-unit-tests",
+      "dispatched": "2026-08-13",
       "last_state": "dispatched",
       "nonterminal_reported": false,
       "reported": false
     }
   ],
-  "notes": "PR #1 (silencer/optest-pydantic-model-namespace-warning) validation fully resolved and retired in a prior run. This run: scanned upstream tenstorrent/tt-metal ops-sanity-tests / ttnn-sanity-tests job logs (run 31680205296, jobs 94385837453 and 94385850970), found 14x '##[warning]Support for class-based `config` is deprecated, use ConfigDict instead.' annotations from infra/data_collection/pydantic_models.py (PerfMetric, OpParam using legacy `class Config: frozen=True`). Opened a new PR migrating both to `model_config = ConfigDict(frozen=True)` and dispatched sanity-tests on the new branch for CI validation; next run should check its conclusion and report back."
+  "notes": "PR #5 (silencer/pydantic-class-config-deprecation): dispatch run 31688570107 still queued as of this run; posted interim /codeowners ping comment, PR remains draft. This run's new target: opened PR for silencer/unused-var-reduce-h-neg fixing -Wunused-but-set-variable in ttnn/cpp/ttnn/operations/reduction/generic/device/kernels/compute/reduce_h_neg.cpp (found via t3000-unit-tests run 31699134365, jobs 94446578370 and 94446578282). Dispatched t3000-unit-tests on the new branch. Next run should resolve PR number, check CI outcome, comment result, mark ready for review."
 }
