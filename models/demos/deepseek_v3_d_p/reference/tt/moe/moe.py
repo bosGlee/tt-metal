@@ -257,7 +257,7 @@ class TorchMoe(nn.Module):
         # Gate path: compute weights/indices internally
         if self.gate is not None and weights is None:
             x_flat = x.view(-1, self.emb_dim)
-            # doing it manually because we dont want to change reference module at the moemnt; this is without activation function;
+            # doing it manually because we dont want to change reference module at the moment; this is without activation function;
             gate_logits = x_flat @ self.gate.weight.T  # (total_tokens, n_routed_experts)
             with torch.no_grad():
                 # ReferenceMoEGate returns (topk_idx, topk_weight) — indices first, weights second
