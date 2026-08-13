@@ -75,3 +75,16 @@ Last run: 2026-08-12 02:42 UTC (workflow run 31557640763)
 - Continue scanning for genuine typos each run (found 5 more this run) — good low-risk source of Task 4 work while 0 open issues persists. Do NOT re-flag "behaviour" (correct British spelling) or "initialise"/"initialised" (correct British spelling) as typos.
 - Re-verify Monthly Activity issue persistence; if still not found via search next run, this strongly indicates a genuine safe-outputs bug worth escalating more prominently (already flagged in issue body this run).
 - Continue checking PR #1/#2/#3 secrecy filter status occasionally (not every run) — 7+ consecutive runs blocked now.
+
+## Update 2026-08-13 (run 31679404980)
+- Confirmed via github MCP tool: 0 open issues again. PR #1, #2, #3 still filtered by secrecy policy (8th+ consecutive run) — not deeply re-investigating, carried forward in Monthly Activity.
+- Monthly Activity issue search still returns 0 results — persistence issue continues (now 8+ runs of this pattern). Flagging more strongly this run: recommend maintainer check safe-outputs create_issue pipeline / issue visibility settings directly, since repeated "success" responses never surface via search_issues.
+- Task 4 executed: grepped for new typo patterns (threshhold, alot, paramter, maintainance, refered, occassion, paralell, persistant, arguement, priveleged, committ, explict, etc.) across .py/.cpp/.h/.md excluding third_party/build. Found one genuine instance:
+  - `threshhold` → `threshold` in models/experimental/transfuser/reference/config.py (variable `draw_brake_threshhold` and its comment). Confirmed no other references to the variable name in repo.
+  - Opened ready-for-review PR "Fix typo: threshhold -> threshold in transfuser config" from branch `repo-assist/fix-threshhold-typo`, labeled `docs`. Touches .py file so pr-gate.yaml/build-artifact.yaml will run. Test Status marked queued/pending.
+- Did not re-check CI outcomes of prior PRs (#1 sdpa docstring, #2 comment typos, #3 comparision/enviroment) — still blocked by secrecy filter.
+
+## Next run guidance
+- Check new PR "Fix typo: threshhold -> threshold in transfuser config" (branch repo-assist/fix-threshhold-typo) build outcome if PR becomes accessible.
+- Monthly Activity issue non-persistence is now a recurring pattern across 8+ runs — treat as a confirmed platform/pipeline issue rather than re-attempting blindly every run; consider skipping creation attempt every other run to reduce duplicate risk once/if it does surface.
+- Continue typo/doc scanning each run (small steady source of low-risk Task 4 wins).
