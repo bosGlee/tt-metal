@@ -1,0 +1,1 @@
+{"pattern":"Pydantic class-based Config deprecation (PydanticDeprecatedSince20)","file":"infra/data_collection/pydantic_models.py","fixed_pr":"silencer/pydantic-class-config-deprecation","status":"pr-opened-pending-ci"}

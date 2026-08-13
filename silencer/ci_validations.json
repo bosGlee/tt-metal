@@ -1,15 +1,14 @@
 {
   "in_flight": [
     {
-      "branch": "silencer/optest-pydantic-model-namespace-warning",
-      "pr": 1,
+      "branch": "silencer/pydantic-class-config-deprecation",
+      "pr": "new (created this run)",
       "workflow": "sanity-tests",
-      "run_id": "31478976655",
-      "dispatched": "2026-08-11",
-      "last_state": "queued",
-      "nonterminal_reported": true,
+      "dispatched": "this-run",
+      "last_state": "dispatched",
+      "nonterminal_reported": false,
       "reported": false
     }
   ],
-  "notes": "pr-gate run 31478977502 (auto-triggered by the PR, not our dispatch) completed with conclusion action_required - reported as terminal-ish informational note in same PR comment, but the actual dispatched validation workflow (sanity-tests, run 31478976655) is still queued/pending runners, so the CI validation entry stays in flight."
+  "notes": "PR #1 (silencer/optest-pydantic-model-namespace-warning) validation fully resolved and retired in a prior run. This run: scanned upstream tenstorrent/tt-metal ops-sanity-tests / ttnn-sanity-tests job logs (run 31680205296, jobs 94385837453 and 94385850970), found 14x '##[warning]Support for class-based `config` is deprecated, use ConfigDict instead.' annotations from infra/data_collection/pydantic_models.py (PerfMetric, OpParam using legacy `class Config: frozen=True`). Opened a new PR migrating both to `model_config = ConfigDict(frozen=True)` and dispatched sanity-tests on the new branch for CI validation; next run should check its conclusion and report back."
 }
