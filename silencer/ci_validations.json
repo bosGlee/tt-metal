@@ -12,13 +12,14 @@
     },
     {
       "branch": "silencer/unused-var-reduce-h-neg",
-      "pr": "new (created this run)",
+      "pr": 8,
       "workflow": "t3000-unit-tests",
-      "dispatched": "2026-08-13",
+      "run_id": "unknown-re-dispatched-2026-08-14",
+      "dispatched": "2026-08-14",
       "last_state": "dispatched",
-      "nonterminal_reported": false,
+      "nonterminal_reported": true,
       "reported": false
     }
   ],
-  "notes": "PR #5 (silencer/pydantic-class-config-deprecation): dispatch run 31688570107 still queued as of this run; posted interim /codeowners ping comment, PR remains draft. This run's new target: opened PR for silencer/unused-var-reduce-h-neg fixing -Wunused-but-set-variable in ttnn/cpp/ttnn/operations/reduction/generic/device/kernels/compute/reduce_h_neg.cpp (found via t3000-unit-tests run 31699134365, jobs 94446578370 and 94446578282). Dispatched t3000-unit-tests on the new branch. Next run should resolve PR number, check CI outcome, comment result, mark ready for review."
+  "notes": "This run (2026-08-14): Phase A only, no new scan target. PR #5 (silencer/pydantic-class-config-deprecation): dispatched run 31688570107 still queued; already reported previously, no new comment posted. PR #8 (silencer/unused-var-reduce-h-neg): the original t3000-unit-tests dispatch from 2026-08-13 never produced a run (list_workflow_runs found 0 runs on that branch) - likely the safe_outputs dispatch was rejected or failed. Posted /codeowners ping comment noting this and re-dispatched t3000-unit-tests on the same branch. Next run must resolve the new run's outcome via search_pull_requests + get_check_runs, re-grep t3k_* test-execution logs for reduce_h_neg.cpp:63 / -Wunused-but-set-variable and confirm a JIT-compile line for reduce_h_neg.cpp is present, then report and mark ready for review. No new noise scan was performed this run since reconciling in-flight PRs and fixing the missing dispatch took priority; next run should proceed to phase B scan of a rotated tracked workflow (e.g. sanity-tests, single-card-demo-tests, or models-t1/t2/t3) if both in-flight entries are resolved by then."
 }
