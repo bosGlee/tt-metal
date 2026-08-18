@@ -1388,7 +1388,7 @@ class TestConfig:
             )
 
         if len(self.runtimes) == 0:
-            stream_name = "deafult_stream_name.stream"
+            stream_name = "default_stream_name.stream"
         else:
             stream_name = f"{sha256(str(' | '.join([str(run_arg) for run_arg in self.runtimes])).encode()).hexdigest()}.stream"
 
