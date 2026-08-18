@@ -88,7 +88,7 @@ def create_model_pipeline(
 
     guidance_scale = 7.5  # Scale for classifier-free guidance
     random_seed = random.randrange(200) + 2
-    # generator = torch.manual_seed(174)  # 10233 Seed generator to create the inital latent noise
+    # generator = torch.manual_seed(174)  # 10233 Seed generator to create the initial latent noise
     generator = torch.manual_seed(random_seed)
     batch_size = 1
 
