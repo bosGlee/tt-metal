@@ -76,7 +76,7 @@ def aggregate_failures(failures: List[dict]) -> dict:
 def test_galaxy_nd(M, K, N, weights_dtype, mesh_shape, mesh_device, num_iters):
     torch.manual_seed(1234)
 
-    # Use a combination of ones and randn to get more readible output
+    # Use a combination of ones and randn to get more readable output
     act_pt = torch.ones(1, 1, M, K)
     weights_pt = torch.randn(1, 1, K, N) * 32
 

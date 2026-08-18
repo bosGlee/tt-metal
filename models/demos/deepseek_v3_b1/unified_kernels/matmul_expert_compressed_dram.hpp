@@ -998,7 +998,7 @@ struct MatmulExpertCompressedDRAM {
                         cb_wait_front(CTArgs::cb_out_silu, 1);
                         cb_pop_front(CTArgs::cb_out_silu, 1);
                     }
-                    // Do not pop here for sender becuase that is handled on ncrisc side to avoid race.
+                    // Do not pop here for sender because that is handled on ncrisc side to avoid race.
                     if constexpr (CTArgs::is_reducer) {
                         if constexpr (pop_out) {
                             cb_pop_front(CTArgs::cb_out, max_tiles);
