@@ -8,7 +8,7 @@ Usage:
     arc_heartbeat_sampling
 
 Description:
-    Data provider script that takes inital snapshot of ARC heartbeat sample for each device and allows taking new snapshots.
+    Data provider script that takes initial snapshot of ARC heartbeat sample for each device and allows taking new snapshots.
 
 Owner:
     adjordjevic-TT

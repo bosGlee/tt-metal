@@ -146,7 +146,7 @@ def run_demo_inference(
     model = UNet2D(device, parameters, 2, input_height, input_width)
 
     guidance_scale = 7.5  # Scale for classifier-free guidance
-    generator = torch.manual_seed(174)  # 10233 Seed generator to create the inital latent noise
+    generator = torch.manual_seed(174)  # 10233 Seed generator to create the initial latent noise
     batch_size = 1
 
     # Initial random noise
@@ -302,7 +302,7 @@ def run_interactive_demo_inference(
     model = UNet2D(device, parameters, 2, input_height, input_width)
 
     guidance_scale = 7.5  # Scale for classifier-free guidance
-    generator = torch.manual_seed(174)  # 10233 Seed generator to create the inital latent noise
+    generator = torch.manual_seed(174)  # 10233 Seed generator to create the initial latent noise
     batch_size = 1
 
     # Initial random noise
@@ -449,7 +449,7 @@ def run_demo_inference_diffusiondb(
     model = UNet2D(device, parameters, 2, input_height, input_width)
 
     guidance_scale = 7.5  # Scale for classifier-free guidance
-    generator = torch.manual_seed(174)  # 10233 Seed generator to create the inital latent noise
+    generator = torch.manual_seed(174)  # 10233 Seed generator to create the initial latent noise
     batch_size = 1
 
     # Initial random noise
