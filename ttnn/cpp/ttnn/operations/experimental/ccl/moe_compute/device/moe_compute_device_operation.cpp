@@ -368,7 +368,7 @@ MoEComputeDeviceOperation::tensor_return_value_t MoEComputeDeviceOperation::crea
 
     const auto tilize_output_tensor = create_device_tensor(output_specs[3], tensor_args.tilize_input_tensor.device());
 
-    // re-percieve tilize output tensor as RM for output
+    // re-perceive tilize output tensor as RM for output
     const auto matmul_output_tensor =
         ttnn::unchecked_reinterpret_layout(tilize_output_tensor, tt::tt_metal::Layout::ROW_MAJOR);
     TT_FATAL(
