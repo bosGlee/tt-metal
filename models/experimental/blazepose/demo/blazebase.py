@@ -347,7 +347,7 @@ class BlazeDetector(BlazeBase):
         # mediapipe/modules/face_landmark/face_detection_front_detection_to_roi.pbtxt
 
         The center and size of the box is calculated from the center
-        of the detected box. Rotation is calcualted from the vector
+        of the detected box. Rotation is calculated from the vector
         between kp1 and kp2 relative to theta0. The box is scaled
         and shifted by dscale and dy.
 
