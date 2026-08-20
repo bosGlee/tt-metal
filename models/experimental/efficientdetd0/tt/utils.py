@@ -65,7 +65,7 @@ def generate_upsample_configuration_from_args(upsample_args: UpsampleArgs, **kwa
 
 def _get_dynamic_padding(configuration: Union[MaxPool2dConfiguration, Conv2dConfiguration]):
     """
-    Helper function for calulating the dynamic padding for given input shapes; similar to Tensorflow implementation
+    Helper function for calculating the dynamic padding for given input shapes; similar to Tensorflow implementation
     """
     assert len(configuration.kernel_size) == len(configuration.stride) == len(configuration.dilation) == 2
 
