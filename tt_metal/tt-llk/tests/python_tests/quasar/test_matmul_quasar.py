@@ -178,14 +178,20 @@ def matmul_tile_dimensions(
 def matmul_implied_math_formats(format, *, is_perf=False):
     if is_perf:
         return [ImpliedMathFormat.Yes]
-    if format.input_format.is_mx_format():
+    if format.input_format.is_mx_format() or format.input_format_B.is_mx_format():
         return [ImpliedMathFormat.Yes]
     return [ImpliedMathFormat.No, ImpliedMathFormat.Yes]
 
 
 def matmul_register_format_hints(format):
     # MxFp4_2x is Quasar only. Quasar Architecture derivations don't support it.
-    if format.input_format != DataFormat.MxFp4 or _ARCH != ChipArchitecture.QUASAR:
+    # A 2x hint applies to both SrcA and SrcB. Mixed-L1-format cases must use the
+    # normal MX unpack path instead, which decodes each operand to Float16_b.
+    if (
+        format.input_format != DataFormat.MxFp4
+        or format.input_format_B != format.input_format
+        or _ARCH != ChipArchitecture.QUASAR
+    ):
         return [None]
     # One hint per exponent family. infer_downstream_unpack_out maps 2x_A to
     # Float16 and 2x_B to Float16_b; the crossed output is a pack conversion
@@ -199,6 +205,17 @@ def matmul_register_format_hints(format):
 
 def matmul_enable_direct_indexing(register_format_hint):
     return [False] if register_format_hint is None else [True, False]
+
+
+def matmul_disable_format_inference(format):
+    # The disabled-inference path is valid for a plain MX operand pair only.
+    # With distinct A/B L1 encodings, inference must independently decode both
+    # operands into their common source-register format.
+    return (
+        format.input_format.is_mx_format()
+        and format.input_format_B == format.input_format
+        and format.register_format_hint is None
+    )
 
 
 def matmul_transpose_modes(math_fidelity, register_format_hint):
@@ -242,6 +259,62 @@ MATMUL_2X_FORMATS = [
     InputOutputFormat(DataFormat.MxFp4, DataFormat.Float16_b),
 ]
 
+# Mixed-precision benchmark profiles. Input A is the activation and input B is
+# the weight. A profile containing two formats is represented as two independent
+# matmuls: a tile has exactly one L1 format, so its values cannot mix formats.
+# MxInt8 is the BF16-src-register-compatible realization of an INT8 profile.
+INT8_INT8_MATMUL_FORMATS = [
+    InputOutputFormat(DataFormat.Int8, DataFormat.Int32),
+]
+
+MXFP4_BF16_MATMUL_FORMATS = [
+    InputOutputFormat(
+        DataFormat.Float16_b,
+        DataFormat.Float16_b,
+        input_format_B=DataFormat.MxFp4,
+    ),
+]
+
+MXFP4_MXINT4_MATMUL_FORMATS = [
+    InputOutputFormat(
+        DataFormat.Float16_b,
+        DataFormat.Float16_b,
+        input_format_B=DataFormat.MxFp4,
+    ),
+    InputOutputFormat(
+        DataFormat.MxInt8,
+        DataFormat.Float16_b,
+        input_format_B=DataFormat.MxInt4,
+    ),
+]
+
+INT4_BF16_MATMUL_FORMATS = [
+    InputOutputFormat(DataFormat.Int8, DataFormat.Int32),
+    InputOutputFormat(DataFormat.Float16_b, DataFormat.Float16_b),
+]
+
+MXINT4_BF16_MATMUL_FORMATS = [
+    InputOutputFormat(
+        DataFormat.MxInt8,
+        DataFormat.Float16_b,
+        input_format_B=DataFormat.MxInt4,
+    ),
+    InputOutputFormat(DataFormat.Float16_b, DataFormat.Float16_b),
+]
+
+MXINT4_FP8_MATMUL_FORMATS = [
+    InputOutputFormat(
+        DataFormat.MxInt8,
+        DataFormat.Float16_b,
+        input_format_B=DataFormat.MxInt4,
+    ),
+    InputOutputFormat(
+        DataFormat.Float16_b,
+        DataFormat.Float16_b,
+        input_format_B=DataFormat.MxFp8P,
+    ),
+]
+
 MATMUL_FORMAT = (
     input_output_formats(
         [
@@ -265,6 +338,7 @@ TINY_MATMUL_FORMATS = [
     format
     for format in MATMUL_FORMAT
     if not format.input_format.is_mx_format()
+    and not format.input_format_B.is_mx_format()
     and not format.output_format.is_mx_format()
 ]
 
@@ -351,9 +425,9 @@ def test_matmul(
         output_format=format.output_format,
     )
     src_B, tile_cnt_B, _, _ = generate_stimuli(
-        stimuli_format_A=format.input_format,
+        stimuli_format_A=format.input_format_B,
         input_dimensions_A=input_B_dimensions,
-        stimuli_format_B=format.input_format,
+        stimuli_format_B=format.input_format_B,
         input_dimensions_B=input_B_dimensions,
         spec_A=stimuli_spec,
         spec_B=stimuli_spec,
@@ -369,7 +443,7 @@ def test_matmul(
     tilized_B = tilize_block(
         src_B,
         dimensions=input_B_dimensions,
-        stimuli_format=format.input_format,
+        stimuli_format=format.input_format_B,
         tile_dimensions=input_B_tile_dimensions,
     )
 
@@ -381,17 +455,18 @@ def test_matmul(
             tilized_A_golden = quantize_mx_tensor_chunked(
                 tilized_A.flatten().to(torch.bfloat16), format.input_format
             ).reshape(tilized_A.shape)
-            tilized_B_golden = quantize_mx_tensor_chunked(
-                tilized_B.flatten().to(torch.bfloat16), format.input_format
-            ).reshape(tilized_B.shape)
             src_A_golden = untilize_block(
                 tilized_A_golden,
                 stimuli_format=format.input_format,
                 dimensions=input_A_dimensions,
             )
+        if format.input_format_B.is_mx_format():
+            tilized_B_golden = quantize_mx_tensor_chunked(
+                tilized_B.flatten().to(torch.bfloat16), format.input_format_B
+            ).reshape(tilized_B.shape)
             src_B_golden = untilize_block(
                 tilized_B_golden,
-                stimuli_format=format.input_format,
+                stimuli_format=format.input_format_B,
                 dimensions=input_B_dimensions,
             )
 
@@ -400,14 +475,14 @@ def test_matmul(
 
             src_B_golden = t_matrix.transpose_faces_multi_tile(
                 src_B_golden,
-                format.input_format,
+                format.input_format_B,
                 num_tiles=tile_cnt_B,
                 tilize=True,
                 input_dimensions=input_B_dimensions,
             )
             src_B_golden = t_matrix.transpose_within_faces_multi_tile(
                 src_B_golden,
-                format.input_format,
+                format.input_format_B,
                 num_tiles=tile_cnt_B,
                 untilize=True,
                 input_dimensions=input_B_dimensions,
@@ -422,10 +497,7 @@ def test_matmul(
             unpacking_to_dest=False,
             # 2x register-format opt-in needs to flow through inference; only disable
             # for plain MX formats where there's nothing to infer.
-            disable_format_inference=(
-                format.input_format.is_mx_format()
-                and format.register_format_hint is None
-            ),
+            disable_format_inference=matmul_disable_format_inference(format),
             register_format_hint=format.register_format_hint,
         )[0]
         pack_src_format = formats_config.pack_src
@@ -440,7 +512,7 @@ def test_matmul(
             input_B_dimensions=input_B_dimensions,
             tilize=False,
             input_A_format=format.input_format,
-            input_B_format=format.input_format,
+            input_B_format=format.input_format_B,
             math_format=pack_src_format,  # For accumulation of results in matmul we require to calculate in pack_src_format.
             dest_acc=dest_acc,
         )
@@ -517,7 +589,7 @@ def test_matmul(
         tilized_A.flatten(),
         format.input_format,
         tilized_B.flatten(),
-        format.input_format,
+        format.input_format_B,
         format.output_format,
         input_A_tile_dimensions=input_A_shape.tile_dims,
         input_B_tile_dimensions=input_B_shape.tile_dims,
@@ -529,9 +601,7 @@ def test_matmul(
         tile_dimensions=output_tile_dimensions,
         use_dense_tile_dimensions=True,
     )
-    disable_format_inference = (
-        format.input_format.is_mx_format() and format.register_format_hint is None
-    )
+    disable_format_inference = matmul_disable_format_inference(format)
 
     if is_perf:
         if perf_report is None:
@@ -580,6 +650,292 @@ def test_matmul(
         res_tensor,
         format.output_format,
     ), "Assert against golden failed"
+
+
+def matmul_mixed_precision_parametrize(
+    formats,
+    register_format_hints,
+    implied_math_formats=matmul_implied_math_formats,
+):
+    """Parameterize one named mixed-precision benchmark profile."""
+    return parametrize(
+        input_tile_dimensions=runtime(FULL_MATMUL_SHAPES),
+        format=formats,
+        math_fidelity=lambda format: get_valid_math_fidelities(format),
+        dest_sync_mode=lambda: matmul_dest_sync_modes(),
+        dest_acc=matmul_dest_acc_modes,
+        matmul_tile_dims=runtime(
+            lambda dest_acc, dest_sync_mode: matmul_tile_dimensions(
+                dest_acc, dest_sync_mode
+            )
+        ),
+        implied_math_format=lambda format: implied_math_formats(format),
+        register_format_hint=register_format_hints,
+        enable_direct_indexing=matmul_enable_direct_indexing,
+        transpose=matmul_transpose_modes,
+        run_types=[[PerfRunType.L1_TO_L1]],
+        loop_factor=[1],
+    )
+
+
+def matmul_int4_bf16_register_hints(format):
+    # Int4 is emulated by the Src-register-only Int8_2x format. The BF16
+    # profile uses normal unpacking, so it deliberately has no register hint.
+    return [DataFormat.Int8_2x] if format.input_format == DataFormat.Int8 else [None]
+
+
+def matmul_int4_bf16_implied_math_formats(format):
+    return (
+        [ImpliedMathFormat.Yes]
+        if format.input_format == DataFormat.Int8
+        else matmul_implied_math_formats(format)
+    )
+
+
+def _run_mixed_precision_matmul(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    test_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
+
+
+@pytest.mark.nightly
+@pytest.mark.quasar
+@matmul_mixed_precision_parametrize(
+    INT8_INT8_MATMUL_FORMATS, matmul_register_format_hints
+)
+def test_matmul_int8_weight_int8_activation(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    _run_mixed_precision_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
+
+
+@pytest.mark.nightly
+@pytest.mark.quasar
+@matmul_mixed_precision_parametrize(
+    MXFP4_BF16_MATMUL_FORMATS, matmul_register_format_hints
+)
+def test_matmul_mxfp4_weight_bf16_activation(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    _run_mixed_precision_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
+
+
+@pytest.mark.nightly
+@pytest.mark.quasar
+@matmul_mixed_precision_parametrize(
+    MXFP4_MXINT4_MATMUL_FORMATS, matmul_register_format_hints
+)
+def test_matmul_mxfp4_mxint4_mixed_weight(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    _run_mixed_precision_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
+
+
+@pytest.mark.nightly
+@pytest.mark.quasar
+@pytest.mark.skipif(
+    not is_4row_arch(),
+    reason="Int4 is benchmarked through Int8_2x, which exists only on the 4-row Quasar variant",
+)
+@matmul_mixed_precision_parametrize(
+    INT4_BF16_MATMUL_FORMATS,
+    matmul_int4_bf16_register_hints,
+    matmul_int4_bf16_implied_math_formats,
+)
+def test_matmul_int4_bf16_mixed_weight(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    _run_mixed_precision_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
+
+
+@pytest.mark.nightly
+@pytest.mark.quasar
+@matmul_mixed_precision_parametrize(
+    MXINT4_BF16_MATMUL_FORMATS, matmul_register_format_hints
+)
+def test_matmul_mxint4_bf16_mixed_weight(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    _run_mixed_precision_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
+
+
+@pytest.mark.nightly
+@pytest.mark.quasar
+@matmul_mixed_precision_parametrize(
+    MXINT4_FP8_MATMUL_FORMATS, matmul_register_format_hints
+)
+def test_matmul_mxint4_fp8_mixed_weight(
+    input_tile_dimensions,
+    matmul_tile_dims,
+    math_fidelity,
+    dest_sync_mode,
+    dest_acc,
+    format,
+    implied_math_format,
+    register_format_hint,
+    enable_direct_indexing,
+    transpose,
+    run_types,
+    loop_factor,
+):
+    _run_mixed_precision_matmul(
+        input_tile_dimensions,
+        matmul_tile_dims,
+        math_fidelity,
+        dest_sync_mode,
+        dest_acc,
+        format,
+        implied_math_format,
+        register_format_hint,
+        enable_direct_indexing,
+        transpose,
+        run_types,
+        loop_factor,
+    )
 
 
 @pytest.mark.nightly
