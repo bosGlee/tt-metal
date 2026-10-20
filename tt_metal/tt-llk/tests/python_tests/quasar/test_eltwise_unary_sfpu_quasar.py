@@ -57,6 +57,8 @@ from helpers.test_variant_parameters import (
     LOOP_FACTOR,
     MATH_OP,
     NUM_FACES,
+    SFPU_SHIFT_AMOUNT,
+    SIGN_MAGNITUDE_FORMAT,
     TEST_FACE_DIMS,
     TILE_COUNT,
     TYPECAST_FORMATS,
@@ -68,6 +70,7 @@ from helpers.tile_constants import (
     FACE_C_DIM,
     MAX_FACE_R_DIM,
     MAX_NUM_FACES,
+    MAX_TILE_ELEMENTS,
 )
 from helpers.utils import passed_test
 
@@ -146,6 +149,13 @@ SFPU_COMP_EXTRA_FORMATS = input_output_formats(
     ],
     same=True,
 )
+
+# Quasar's signed integer Dest representation is sign-magnitude.  Keep this as
+# an explicit test axis rather than relying on StimuliConfig's default packer
+# setting: it makes the signed-integer representation intentional and protects
+# it from a future default change.  Int32 -> Float16_b is intentionally excluded below;
+# that typecast kernel consumes a raw two's-complement Int32 image.
+UNARY_SIGN_MAGNITUDE_FORMATS = [True]
 
 
 # ---------------------------------------------------------------------------
@@ -1017,11 +1027,13 @@ def generate_sfpu_unary_combinations(*, is_perf=False):
 
 
 @pytest.mark.quasar
+@pytest.mark.parametrize("sign_magnitude", UNARY_SIGN_MAGNITUDE_FORMATS)
 @parametrize(
     mathop_formats_dest_acc_sync_implied_math_input_dims=generate_sfpu_unary_combinations(),
 )
 def test_eltwise_unary_sfpu_quasar(
     mathop_formats_dest_acc_sync_implied_math_input_dims,
+    sign_magnitude,
     *,
     run_types=(PerfRunType.L1_TO_L1,),
     loop_factor=1,
@@ -1124,6 +1136,11 @@ def test_eltwise_unary_sfpu_quasar(
     )
 
     unpack_to_dest = format_variant.unpack_to_dest
+    uses_signed_integer_smag = formats.input_format in (
+        DataFormat.Int32,
+        DataFormat.Int16,
+        DataFormat.Int8,
+    ) and not _is_int32_to_fp16b(formats.input_format, formats.output_format)
     if is_perf and perf_report is None:
         raise ValueError("perf_report must be provided when is_perf=True")
 
@@ -1169,10 +1186,12 @@ def test_eltwise_unary_sfpu_quasar(
             tile_count_B=tile_cnt_A,
             tile_count_res=tile_cnt_A,
             num_faces=num_faces,
-            # Unpack-to-Dest copies Int32 L1 as two's-complement. Only Int32 → Float16_b
-            # converts 2SC → SM in the kernel; other integer typecasts still pack SM.
-            twos_complement=_is_int32_to_fp16b(
-                formats.input_format, formats.output_format
+            # Signed integer unary inputs use native SMAG pack/unpack.  Int32 -> Float16_b
+            # is the exception: its kernel explicitly converts a raw 2SC Dest image to SM.
+            twos_complement=(
+                not sign_magnitude
+                if uses_signed_integer_smag
+                else _is_int32_to_fp16b(formats.input_format, formats.output_format)
             ),
         ),
         "unpack_to_dest": unpack_to_dest,
@@ -1211,6 +1230,106 @@ def test_eltwise_unary_sfpu_quasar(
         res_tensor,
         formats.output_format,
     ), "Assert against golden failed"
+
+
+# ---------------------------------------------------------------------------
+# SMAG32 right shift: Blackhole-compatible quantized path.
+#
+# APPROX uses truncation of the magnitude. Non-approximate mode adds the
+# half-unit before shifting, i.e. magnitude round-half-up. The crafted values
+# stay within the rounding-overflow constraint even at shift=31.
+# ---------------------------------------------------------------------------
+_RIGHT_SHIFT_SMAG_VALUES = torch.tensor(
+    [
+        -1_073_741_823,
+        -1_025,
+        -1_024,
+        -1_023,
+        -9,
+        -8,
+        -7,
+        -1,
+        0,
+        1,
+        7,
+        8,
+        9,
+        1_023,
+        1_024,
+        1_025,
+        1_073_741_823,
+    ],
+    dtype=torch.int32,
+)
+
+
+def _right_shift_smag_golden(values, shift_amount, approx_mode):
+    values64 = values.to(torch.int64)
+    magnitude = values64.abs()
+    if approx_mode == ApproximationMode.No and shift_amount > 0:
+        magnitude += 1 << (shift_amount - 1)
+    quotient = magnitude >> shift_amount
+    return torch.where(values64 < 0, -quotient, quotient).to(torch.int32)
+
+
+@pytest.mark.quasar
+@pytest.mark.parametrize("shift_amount", [0, 3, 31])
+@pytest.mark.parametrize("approx_mode", [ApproximationMode.No, ApproximationMode.Yes])
+def test_eltwise_unary_sfpu_right_shift_smag_quasar(shift_amount, approx_mode):
+    """SMAG32 right shift at the 0/3/31 boundaries, rounded and truncated."""
+    repeats = (MAX_TILE_ELEMENTS + len(_RIGHT_SHIFT_SMAG_VALUES) - 1) // len(
+        _RIGHT_SHIFT_SMAG_VALUES
+    )
+    values = _RIGHT_SHIFT_SMAG_VALUES.repeat(repeats)[:MAX_TILE_ELEMENTS]
+    golden = _right_shift_smag_golden(values, shift_amount, approx_mode)
+    formats = InputOutputFormat(DataFormat.Int32, DataFormat.Int32)
+
+    configuration = create_test_or_perf_config(
+        is_perf=False,
+        run_types=(PerfRunType.L1_TO_L1,),
+        test_config_kwargs={
+            "test_name": "sources/quasar/eltwise_unary_sfpu_quasar_test.cpp",
+            "formats": formats,
+            "templates": [
+                MATH_OP(mathop=MathOperation.RightShift),
+                APPROX_MODE(approx_mode),
+                IMPLIED_MATH_FORMAT(ImpliedMathFormat.No),
+                DATA_COPY_TYPE(DataCopyType.A2D),
+                UNPACKER_ENGINE_SEL(UnpackerEngine.UnpDest),
+                DEST_SYNC(DestSync.Half),
+                SIGN_MAGNITUDE_FORMAT(True),
+                SFPU_SHIFT_AMOUNT(shift_amount),
+                TYPECAST_FORMATS(),
+            ],
+            "runtimes": [
+                TILE_COUNT(1),
+                NUM_FACES(MAX_NUM_FACES),
+                TEST_FACE_DIMS(),
+                DEST_INDEX(0),
+                LOOP_FACTOR(1),
+            ],
+            "variant_stimuli": StimuliConfig(
+                values,
+                DataFormat.Int32,
+                torch.zeros_like(values),
+                DataFormat.Int32,
+                DataFormat.Int32,
+                tile_count_A=1,
+                tile_count_B=1,
+                tile_count_res=1,
+                num_faces=MAX_NUM_FACES,
+                twos_complement=False,
+            ),
+            "unpack_to_dest": True,
+            "dest_acc": DestAccumulation.Yes,
+            "disable_format_inference": True,
+        },
+    )
+
+    result = torch.tensor(configuration.run().result, dtype=torch.int32)
+    assert torch.equal(
+        result, golden
+    ), f"SMAG32 right shift mismatch: shift={shift_amount}, approx={approx_mode}"
 
 
 # ---------------------------------------------------------------------------

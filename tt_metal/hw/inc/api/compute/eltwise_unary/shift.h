@@ -60,6 +60,24 @@ ALWI void right_shift_tile(uint32_t idst, uint32_t param0) {
         DST_SYNC_MODE, DST_ACCUM_MODE, calculate_right_shift, (APPROX, data_format), idst, VectorMode::RC, param0));
 }
 
+#ifdef ARCH_QUASAR
+// Sign-magnitude Int32 variant used by quantized paths. It shifts the
+// magnitude, restores the input sign (including negative zero), and returns
+// SMAG32. Valid shift amounts are 0..31; larger values clamp to 31. The
+// non-approximate variant rounds the magnitude half-up before shifting and
+// requires |input| + 2^(param0 - 1) <= INT32_MAX when param0 > 0.
+ALWI void right_shift_tile_sm(uint32_t idst, uint32_t param0) {
+    MATH(SFPU_UNARY_CALL(
+        DST_SYNC_MODE, DST_ACCUM_MODE, calculate_right_shift_sm, (APPROX), idst, VectorMode::RC, param0));
+}
+
+// Explicit round-half-up form of right_shift_tile_sm, independent of APPROX.
+ALWI void right_shift_tile_sm_with_rounding(uint32_t idst, uint32_t param0) {
+    MATH(SFPU_UNARY_CALL(
+        DST_SYNC_MODE, DST_ACCUM_MODE, calculate_right_shift_sm_with_rounding, (APPROX), idst, VectorMode::RC, param0));
+}
+#endif  // ARCH_QUASAR
+
 /**
  * Please refer to documentation for any_init.
  */

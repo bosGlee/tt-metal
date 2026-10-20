@@ -43,6 +43,22 @@ ALWI void div_int32_tile(uint32_t idst0, uint32_t idst1, uint32_t odst) {
         VectorMode::RC)));
 }
 
+#ifdef ARCH_QUASAR
+// Sign-magnitude Int32 input variant. The quotient is stored as FP32 bits in
+// Dest and must therefore be packed as Float32 by the caller.
+ALWI void div_int32_tile_sm(uint32_t idst0, uint32_t idst1, uint32_t odst) {
+    MATH((SFPU_BINARY_CALL(
+        DST_SYNC_MODE,
+        DST_ACCUM_MODE,
+        calculate_div_int32_sm,
+        (APPROX, 8 /* ITERATIONS */),
+        idst0,
+        idst1,
+        odst,
+        VectorMode::RC)));
+}
+#endif  // ARCH_QUASAR
+
 /**
  * Please refer to documentation for div_int32_tile.
  */

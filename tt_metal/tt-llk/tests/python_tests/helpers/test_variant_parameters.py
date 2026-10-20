@@ -1541,13 +1541,14 @@ class MAX_POOL_CHUNK(RuntimeParameter):
 
 @dataclass
 class SIGN_MAGNITUDE_FORMAT(TemplateParameter):
-    """Quant-family SMAG32 datapath toggle; read only by the quant binary ops."""
+    """SMAG32 Dest toggle for Quasar integer SFPU operations."""
 
     sign_magnitude: bool = False
 
     def convert_to_cpp(self) -> str:
         return (
-            f"constexpr bool SFPU_SIGN_MAGNITUDE = {str(self.sign_magnitude).lower()};"
+            f"constexpr bool SFPU_SIGN_MAGNITUDE = {str(self.sign_magnitude).lower()};\n"
+            f"#define SFPU_SIGN_MAGNITUDE_FORMAT {int(self.sign_magnitude)}"
         )
 
 

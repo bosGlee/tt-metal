@@ -327,7 +327,8 @@ def _params_solve_dependencies(**kwargs: any) -> List[Tuple]:
 
 def build_param_id(parameters, value_tuple):
     """Readable pytest ID for one parameter tuple, e.g.
-    `formats:Bfp4_b->Float16_b-mathop:Sin`.
+    `formats:Bfp4_b->Float16_b-mathop:Sin`, or, for independently formatted
+    operands, `formats:Float16_b+MxInt4->Float16_b-mathop:Sin`.
 
     Exposed so tests that call pytest.mark.parametrize directly (because they build
     their own value tuples) can produce the same IDs as @parametrize, keeping -k
@@ -336,7 +337,15 @@ def build_param_id(parameters, value_tuple):
     parts = []
     for param, value in zip(parameters, value_tuple):
         if isinstance(value, InputOutputFormat):
-            param_value = f"{value.input_format.name}->{value.output_format.name}"
+            input_format_B = value.input_format_B
+            param_value = (
+                f"{value.input_format.name}->{value.output_format.name}"
+                if input_format_B == value.input_format
+                else (
+                    f"{value.input_format.name}+{input_format_B.name}"
+                    f"->{value.output_format.name}"
+                )
+            )
         elif hasattr(value, "name"):
             param_value = value.name
         elif hasattr(value, "value"):

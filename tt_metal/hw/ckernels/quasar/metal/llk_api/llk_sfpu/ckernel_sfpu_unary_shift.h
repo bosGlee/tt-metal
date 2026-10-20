@@ -40,6 +40,45 @@ inline void calculate_left_shift(const uint shift_amt) {
 
 inline void right_shift_init() { math::_reset_counters_<p_setrwc::SET_ABD_F>(); }
 
+// SMAG32 right shift used by the Quasar quantization API. The magnitude is
+// shifted and the original sign bit is restored, including for a zero result.
+// The Blackhole implementation only has defined inputs for shift amounts
+// [0, 31]; clamp larger runtime values defensively to 31 to avoid a C++ shift
+// by 32. In the rounded variant, callers must also ensure
+// |input| + 2^(shift-1) <= INT32_MAX for shift > 0.
+template <bool ROUND_TO_NEAREST, int ITERATIONS = 8>
+inline void calculate_right_shift_sm_impl(const uint shift_amt) {
+    constexpr std::uint32_t magnitude_mask = 0x7fffffffu;
+    constexpr std::uint32_t sign_mask = 0x80000000u;
+    const unsigned shift = shift_amt > 31 ? 31u : static_cast<unsigned>(shift_amt);
+    const std::uint32_t rounding_bit = (ROUND_TO_NEAREST && shift > 0) ? (1u << (shift - 1)) : 0u;
+
+#pragma GCC unroll 8
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vSMag input = sfpi::dst_reg[0].mode<sfpi::DataLayout::SM32>();
+        sfpi::vUInt raw = sfpi::as<sfpi::vUInt>(input);
+        sfpi::vUInt magnitude = raw & magnitude_mask;
+        magnitude += rounding_bit;
+        sfpi::vUInt result = (magnitude >> shift) | (raw & sign_mask);
+        sfpi::dst_reg[0].mode<sfpi::DataLayout::SM32>() = sfpi::as<sfpi::vSMag>(result);
+        sfpi::dst_reg++;
+    }
+}
+
+template <bool APPROXIMATION_MODE, int ITERATIONS = 8>
+inline void calculate_right_shift_sm_with_rounding(const uint shift_amt) {
+    calculate_right_shift_sm_impl<true, ITERATIONS>(shift_amt);
+}
+
+template <bool APPROXIMATION_MODE, int ITERATIONS = 8>
+inline void calculate_right_shift_sm(const uint shift_amt) {
+    if constexpr (APPROXIMATION_MODE) {
+        calculate_right_shift_sm_impl<false, ITERATIONS>(shift_amt);
+    } else {
+        calculate_right_shift_sm_with_rounding<APPROXIMATION_MODE, ITERATIONS>(shift_amt);
+    }
+}
+
 // Right shift by an immediate scalar amount. Signed data uses an arithmetic
 // shift; unsigned data uses a logical shift.
 // A shift amount >= 32 saturates to 31.

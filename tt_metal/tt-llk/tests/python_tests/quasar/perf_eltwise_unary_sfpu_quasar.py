@@ -31,6 +31,7 @@ def test_perf_eltwise_unary_sfpu_quasar(
 ):
     run_eltwise_unary_sfpu_quasar(
         [mathop_formats_dest_acc_sync_implied_math_input_dims],
+        sign_magnitude=True,
         run_types=run_types,
         loop_factor=loop_factor,
         is_perf=is_perf,

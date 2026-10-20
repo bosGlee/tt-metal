@@ -119,6 +119,7 @@ def _run_sfpu_binary_llk_golden(
     format_variant=None,
     max_ulp=None,
     broadcast_type=BroadcastType.None_,
+    sign_magnitude=False,
 ):
     """Shared driver for the LLK-golden binary SFPU ops.
 
@@ -135,6 +136,14 @@ def _run_sfpu_binary_llk_golden(
     src_A, tile_cnt_A, src_B = prepare_stimuli(
         formats, input_dimensions, src0_idx, src1_idx, mathop
     )
+
+    # Signed integer formats normally pack as SMAG. Keep the explicit SMAG32
+    # path in a range that excludes INT32_MIN (not representable by SMAG32) and
+    # cannot wrap ADD/MUL into that value.
+    if sign_magnitude and formats.input_format.is_integer():
+        smag_safe_limit = 1_000
+        src_A = torch.clamp(src_A, -smag_safe_limit, smag_safe_limit)
+        src_B = torch.clamp(src_B, -smag_safe_limit, smag_safe_limit)
 
     golden_input = src_A
     if broadcast_type != BroadcastType.None_:
@@ -181,8 +190,7 @@ def _run_sfpu_binary_llk_golden(
                 UnpackerEngine.UnpDest if unpack_to_dest else UnpackerEngine.UnpA
             ),
             DEST_SYNC(),
-            # 2's-complement datapath (default); only the quant family reads this.
-            SIGN_MAGNITUDE_FORMAT(False),
+            SIGN_MAGNITUDE_FORMAT(sign_magnitude),
             SFPU_DST_ROUNDING_MODE(dst_rounding_mode),
             # The shared unary-SFPU dispatch in sfpu_operations_quasar.h has a typecast
             # branch that references the non-dependent globals TYPECAST_IN_FORMAT /
@@ -209,7 +217,10 @@ def _run_sfpu_binary_llk_golden(
             tile_count_B=tile_cnt_A,
             tile_count_res=1,
             num_faces=num_faces,
-            twos_complement=formats.input_format.is_integer(),
+            # The legacy integer-binary path stages raw 2's-complement. The
+            # SMAG32 path deliberately retains the default signed pack/unpack
+            # representation so the kernel must perform its casts.
+            twos_complement=(formats.input_format.is_integer() and not sign_magnitude),
         ),
         "unpack_to_dest": unpack_to_dest,
         "dest_acc": dest_acc,
@@ -247,6 +258,7 @@ def _run_sfpu_binary_llk_golden(
 
 # ===========================================================================
 # Family 1 — integer ops (add, mul, gt, lt, le, ge, copy_dest), Int32 only.
+# Each operation is covered with raw 2's-complement and SMAG32 Dest encodings.
 # Ported from test_sfpu_binary_quasar.py.
 # ===========================================================================
 def _prepare_int_stimuli(
@@ -290,6 +302,7 @@ INT_SWEEP = dict(
 @pytest.mark.quasar
 @parametrize(
     **INT_SWEEP,
+    sign_magnitude=[False, True],
     tile_indices=runtime(_TILE_INDEX_VARIANTS),
 )
 def test_eltwise_binary_sfpu_int_quasar(
@@ -298,13 +311,14 @@ def test_eltwise_binary_sfpu_int_quasar(
     mathop,
     tile_indices,
     *,
+    sign_magnitude,
     approx_mode=ApproximationMode.No,
     run_types=(PerfRunType.L1_TO_L1,),
     loop_factor=1,
     is_perf=False,
     perf_report=None,
 ):
-    """Binary SFPU integer ops (add, mul, gt, lt, le, ge, copy_dest), Int32."""
+    """Binary Int32 SFPU ops over both 2's-complement and SMAG32 Dest."""
     binary_op = mathop.cpp_enum_value
     clamp_inputs = 1000 if mathop == MathOperation.SfpuElwmulInt else None
     _run_sfpu_binary_llk_golden(
@@ -322,7 +336,105 @@ def test_eltwise_binary_sfpu_int_quasar(
         loop_factor=loop_factor,
         is_perf=is_perf,
         perf_report=perf_report,
+        sign_magnitude=sign_magnitude,
     )
+
+
+# ===========================================================================
+# Sign-magnitude Int32 division through the public compute API.
+#
+# This is intentionally separate from MathOperation.SfpuDivInt32: that harness
+# operation is integer division with truncation toward zero.  The compute API
+# div_int32_tile_sm instead consumes SMAG32 operands and writes an FP32 quotient.
+# ===========================================================================
+def _run_div_int32_smag(
+    tile_indices,
+    *,
+    run_types=(PerfRunType.L1_TO_L1,),
+    loop_factor=1,
+):
+    src0_idx, src1_idx, dst_idx = tile_indices
+    numerators = torch.randint(-1000, 1001, (MAX_TILE_ELEMENTS,), dtype=torch.int32)
+    denominators = torch.randint(-1000, 1001, (MAX_TILE_ELEMENTS,), dtype=torch.int32)
+    denominators[denominators == 0] = 1
+    buffer_A, tile_count = _stage_binary_operands(
+        numerators, denominators, tile_indices, torch.int32
+    )
+    golden = numerators.to(torch.float32) / denominators.to(torch.float32)
+
+    # The C++ binary harness reserves DIV + SIGN_MAGNITUDE_FORMAT for this
+    # compute-API test.  Regular float DIV never enables the sign-magnitude flag.
+    test_config_kwargs = {
+        "test_name": _CPP_SOURCE,
+        "formats": InputOutputFormat(DataFormat.Int32, DataFormat.Float32),
+        "templates": [
+            SFPU_BINARY_OP("DIV"),
+            APPROX_MODE(ApproximationMode.No),
+            IMPLIED_MATH_FORMAT(ImpliedMathFormat.No),
+            DATA_COPY_TYPE(DataCopyType.A2D),
+            UNPACKER_ENGINE_SEL(UnpackerEngine.UnpDest),
+            DEST_SYNC(),
+            SIGN_MAGNITUDE_FORMAT(True),
+            SFPU_DST_ROUNDING_MODE(),
+            TYPECAST_FORMATS(),
+            BROADCAST_TYPE(BroadcastType.None_),
+        ],
+        "runtimes": [
+            TILE_COUNT(tile_count),
+            NUM_FACES(MAX_NUM_FACES),
+            TEST_FACE_DIMS(),
+            DEST_INDEX(0),
+            SFPU_TILE_INDICES(src0_idx, src1_idx, dst_idx),
+            LOOP_FACTOR(loop_factor),
+            ZERO_POINT(0),
+        ],
+        "variant_stimuli": StimuliConfig(
+            buffer_A,
+            DataFormat.Int32,
+            buffer_A[:MAX_TILE_ELEMENTS],  # buffer_B is unused by this harness
+            DataFormat.Int32,
+            DataFormat.Float32,
+            tile_count_A=tile_count,
+            tile_count_B=1,
+            tile_count_res=1,
+            num_faces=MAX_NUM_FACES,
+            # Convert the signed host values to SMAG32 while packing them into Dest.
+            twos_complement=False,
+        ),
+        "unpack_to_dest": True,
+        "dest_acc": DestAccumulation.Yes,
+        "disable_format_inference": True,
+    }
+    configuration = create_test_or_perf_config(
+        is_perf=False,
+        run_types=run_types,
+        test_config_kwargs=test_config_kwargs,
+    )
+
+    # SFPU still loads from the physical Int32/SMAG32 Dest mode. Its store is a
+    # raw FP32 quotient bit-pattern, which only the packer reinterprets as Float32.
+    # Configuring SFPU_OUT itself as Float32 is invalid for this Int32 Dest path.
+    fc = configuration.formats_config[0]
+    fc.sfpu_src = DataFormat.Int32
+    fc.sfpu_dst = DataFormat.Int32
+    fc.pack_src = DataFormat.Float32
+    fc.pack_dst = DataFormat.Float32
+    fc.pack_S_src = DataFormat.Float32
+    fc.pack_S_dst = DataFormat.Float32
+
+    res_from_L1 = configuration.run().result
+    res_tensor = torch.tensor(res_from_L1, dtype=torch.float32)
+    assert len(res_tensor) == len(golden)
+    assert passed_test(
+        golden, res_tensor, DataFormat.Float32
+    ), f"SMAG32 div mismatch (tile_indices={tile_indices})"
+
+
+@pytest.mark.quasar
+@pytest.mark.parametrize("tile_indices", _TILE_INDEX_VARIANTS)
+def test_eltwise_binary_sfpu_div_int32_smag_quasar(tile_indices):
+    """div_int32_tile_sm: SMAG32 Int32 operands to an FP32 quotient."""
+    _run_div_int32_smag(tile_indices)
 
 
 # ===========================================================================

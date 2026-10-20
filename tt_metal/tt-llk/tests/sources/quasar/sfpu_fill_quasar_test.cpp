@@ -116,7 +116,7 @@ void run_kernel(RUNTIME_PARAMETERS params)
         for (std::uint32_t i = 0; i < TILE_CNT; ++i)
         {
             SFPU_UNARY_CALL(
-                dest_sync, is_fp32_dest_acc_en, _calculate_fill_int_, (FILL_INT_FORMAT, SFPU_ITERATIONS), DST_INDEX + i, VectorMode::RC, 5 /*value*/);
+                dest_sync, is_fp32_dest_acc_en, _calculate_fill_int_, (FILL_INT_FORMAT, SFPU_ITERATIONS), DST_INDEX + i, VectorMode::RC, -5 /*value*/);
         }
     }
     else

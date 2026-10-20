@@ -185,7 +185,17 @@ void run_kernel(RUNTIME_PARAMETERS params)
         // ADDR_MOD_0/1 or bank-0 programming, so both initializers can remain in
         // the INIT zone before the measured TILE_LOOP.
         _llk_math_eltwise_sfpu_init_();
-        test_utils::init_binary_sfpu_operation_quasar<SFPU_BINARY_OP, is_fp32_dest_acc_en, SFPU_SIGN_MAGNITUDE, APPROX_MODE, BROADCAST_TYPE>(ZERO_POINT);
+        if constexpr (SFPU_BINARY_OP == BinaryOp::DIV && SFPU_SIGN_MAGNITUDE)
+        {
+            // The standalone LLK harness invokes the same init callback as the
+            // public div_int32_tile_sm compute API. DIV_INT32 remains reserved
+            // for the separate truncating integer-divide harness operation.
+            div_init<APPROX_MODE>();
+        }
+        else
+        {
+            test_utils::init_binary_sfpu_operation_quasar<SFPU_BINARY_OP, is_fp32_dest_acc_en, SFPU_SIGN_MAGNITUDE, APPROX_MODE, BROADCAST_TYPE>(ZERO_POINT);
+        }
         PROFILER_SYNC();
     }
     {
@@ -212,15 +222,32 @@ void run_kernel(RUNTIME_PARAMETERS params)
                         _llk_math_set_dvalid_<p_cleardvalid::FPU, dest_sync>();
                     }
                 }
-                test_utils::call_binary_sfpu_operation_quasar<
-                    SFPU_BINARY_OP,
-                    dest_sync,
-                    is_fp32_dest_acc_en,
-                    SFPU_DST_ROUNDING_MODE,
-                    SFPU_ITERATIONS,
-                    SFPU_SIGN_MAGNITUDE,
-                    APPROX_MODE,
-                    BROADCAST_TYPE>(SRC0_TILE_IDX, SRC1_TILE_IDX, DST_TILE_IDX, math_format);
+                if constexpr (SFPU_BINARY_OP == BinaryOp::DIV && SFPU_SIGN_MAGNITUDE)
+                {
+                    // Keep the physical Dest mode Int32/SMAG32 for input loads;
+                    // calculate_div_int32_sm overwrites it with FP32 quotient bits.
+                    SFPU_BINARY_CALL(
+                        dest_sync,
+                        is_fp32_dest_acc_en,
+                        calculate_div_int32_sm,
+                        (APPROX_MODE, SFPU_ITERATIONS),
+                        SRC0_TILE_IDX,
+                        SRC1_TILE_IDX,
+                        DST_TILE_IDX,
+                        VectorMode::RC);
+                }
+                else
+                {
+                    test_utils::call_binary_sfpu_operation_quasar<
+                        SFPU_BINARY_OP,
+                        dest_sync,
+                        is_fp32_dest_acc_en,
+                        SFPU_DST_ROUNDING_MODE,
+                        SFPU_ITERATIONS,
+                        SFPU_SIGN_MAGNITUDE,
+                        APPROX_MODE,
+                        BROADCAST_TYPE>(SRC0_TILE_IDX, SRC1_TILE_IDX, DST_TILE_IDX, math_format);
+                }
                 if constexpr (PERF_RUN_TYPE == PerfRunType::L1_TO_L1)
                 {
                     _llk_math_set_dvalid_<p_cleardvalid::SFPU, dest_sync>();
