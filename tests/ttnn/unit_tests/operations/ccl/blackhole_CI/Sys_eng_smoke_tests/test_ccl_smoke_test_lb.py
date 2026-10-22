@@ -74,7 +74,7 @@ def test_ccl_ddr_smoke_test(
     num_iters,
 ):
     validate_test(num_devices, None, bh_2d_mesh_device.shape, cluster_axis)
-    # Check all the rows and columns independantly within the device
+    # Check all the rows and columns independently within the device
     if cluster_axis == 0:
         submesh_device = bh_2d_mesh_device.create_submesh(ttnn.MeshShape((num_devices, 1)))
     else:

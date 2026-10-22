@@ -76,7 +76,7 @@ def test_ccl_ddr_smoke_test(
     if ttnn.get_num_devices() != 4 and ttnn.get_fabric_config() == ttnn.FabricConfig.FABRIC_1D_RING:
         pytest.skip("This test is only for the quietbox")
     validate_test(num_devices, None, bh_2d_mesh_device.shape, cluster_axis)
-    # Check all the rows and columns independantly within the device
+    # Check all the rows and columns independently within the device
     if cluster_axis == 0:
         submesh_device = bh_2d_mesh_device.create_submesh(ttnn.MeshShape((num_devices, 1)))
     else:
